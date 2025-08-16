@@ -5,6 +5,10 @@ on:
     branches:
       - prodDeploy
 
+permissions:
+  contents: read
+  deployments: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -12,11 +16,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
       - name: Set up Railway CLI
         run: npm install -g @railway/cli
+
+      - name: Verify Railway Token
+        run: |
+          if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
+            echo "❌ RAILWAY_TOKEN secret is not set"
+            exit 1
+          fi
+          echo "✅ Railway token is configured"
 
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway up --service ${{ secrets.RAILWAY_SERVICE }} 
+          echo "🚀 Starting deployment to Railway..."
+          railway up --service ${{ secrets.RAILWAY_SERVICE }}
+          echo "✅ Deployment completed successfully!"
+
+      - name: Get Deployment URL
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "🌐 Getting deployment URL..."
+          DEPLOY_URL=$(railway status --json | jq -r '.url' || echo "URL not available")
+          echo "Deployment URL: $DEPLOY_URL"
+          echo "::set-output name=deploy_url::$DEPLOY_URL" 
